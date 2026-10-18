@@ -11,7 +11,7 @@ build/
 .ruff_cache/
 .pytest_cache/
 .vscode/
-uv.lock
 .idea/
 .DS_Store
 *.log
+workspace/
