@@ -237,7 +237,10 @@ class FrogCoreApp:
         # Core 的 ping、会话管理等本地能力不依赖模型密钥。仅在配置了密钥时
         # 初始化手动压缩 provider；真正执行 Agent 时 runner 仍会按需校验密钥。
         compact_provider = (
-            FrogAnthropicProvider(self._config.llm.default_model)
+            FrogAnthropicProvider(
+                self._config.llm.default_model,
+                base_url=self._config.llm.base_url,
+            )
             if os.environ.get("ANTHROPIC_API_KEY")
             else None
         )

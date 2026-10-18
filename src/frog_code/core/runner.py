@@ -189,7 +189,8 @@ class FrogAgentRunner:
             cancelled = False
             try:
                 provider: FrogLLMProvider = self._provider or FrogAnthropicProvider(
-                    self._config.llm.default_model
+                    self._config.llm.default_model,
+                    base_url=self._config.llm.base_url,
                 )
                 if self._trace is not None:
                     provider = FrogTracingProvider(

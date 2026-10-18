@@ -34,6 +34,7 @@ class FrogAgentConfig:
 @dataclass
 class FrogLlmConfig:
     default_model: str = _DEFAULT_MODEL
+    base_url: str | None = None
     router: str = "static"  # "static" | "rule_based" (S4) | "cost_budget" (S6)
 
 
@@ -170,7 +171,7 @@ def _frog_apply_toml(config: FrogConfig, data: dict[str, Any]) -> None:
         llm = data["llm"]
         if not isinstance(llm, dict):
             raise SystemExit("Config error: [llm] must be a table")
-        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "router"}
+        unknown_llm: set[str] = set(llm.keys()) - {"default_model", "base_url", "router"}
         if unknown_llm:
             raise SystemExit(f"Unknown [llm] keys: {', '.join(sorted(unknown_llm))}")
         if "default_model" in llm:
@@ -178,6 +179,11 @@ def _frog_apply_toml(config: FrogConfig, data: dict[str, Any]) -> None:
             if not isinstance(val, str):
                 raise SystemExit("Config error: llm.default_model must be a string")
             config.llm.default_model = val
+        if "base_url" in llm:
+            val = llm["base_url"]
+            if not isinstance(val, str):
+                raise SystemExit("Config error: llm.base_url must be a string")
+            config.llm.base_url = val.rstrip("/") or None
         if "router" in llm:
             val = llm["router"]
             if not isinstance(val, str):
@@ -334,6 +340,13 @@ def _frog_apply_env(config: FrogConfig) -> None:
     default_model = os.environ.get("FROG_LLM_DEFAULT_MODEL")
     if default_model is not None:
         config.llm.default_model = default_model
+
+    # ANTHROPIC_BASE_URL is retained as a compatibility alias for the Anthropic SDK.
+    llm_base_url = os.environ.get("FROG_LLM_BASE_URL")
+    if llm_base_url is None:
+        llm_base_url = os.environ.get("ANTHROPIC_BASE_URL")
+    if llm_base_url is not None:
+        config.llm.base_url = llm_base_url.strip().rstrip("/") or None
 
     trace_enabled = os.environ.get("FROG_TRACE_ENABLED")
     if trace_enabled is not None:

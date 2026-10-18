@@ -60,6 +60,8 @@ cp .env.example .env
 | `FROG_LOG_LEVEL` | `INFO` | 日志级别（DEBUG / INFO / WARNING / ERROR） |
 | `FROG_LOG_FILE` | `~/.frog/logs/core.log` | 日志文件路径（留空则仅输出 stderr） |
 | `FROG_LOG_FORMAT` | `text` | 日志格式（`text` 或 `json`） |
+| `FROG_LLM_DEFAULT_MODEL` | `claude-sonnet-4-6` | 模型名称 |
+| `FROG_LLM_BASE_URL` | 空 | Anthropic Messages 兼容接口地址；DeepSeek 使用 `https://api.deepseek.com/anthropic` |
 
 ---
 
@@ -93,3 +95,4 @@ tail -f ~/.frog/logs/core.log
 | `core not running` | 未启动守护进程 | `uv run frog-core` |
 | `Address already in use` | 端口被其他进程占用 | `FROG_PORT=8000 uv run frog-core` |
 | `Config error: FROG_PORT must be an integer` | `.env` 或环境变量中端口值非整数 | 检查 `FROG_PORT` 的值 |
+| `403 Request not allowed` | DeepSeek 模型被发往 Anthropic 官方接口，或 API Key 无权限 | 设置 `FROG_LLM_BASE_URL=https://api.deepseek.com/anthropic`，确认 Key 属于 DeepSeek 后重启 Core |

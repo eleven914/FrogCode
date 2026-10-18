@@ -17,6 +17,8 @@ _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "claude-sonnet-4-6": 200_000,
     "claude-haiku-4-5-20251001": 200_000,
     "claude-opus-4-7": 200_000,
+    "deepseek-v4-pro": 1_000_000,
+    "deepseek-flash": 1_000_000,
 }
 
 _MAX_STREAM_RETRIES = 3
@@ -44,12 +46,15 @@ def _frog_now() -> str:
 
 class FrogAnthropicProvider:
     # 初始化 Anthropic 客户端；client 可在测试时注入以跳过 API key 检查
-    def __init__(self, model: str, client: Any = None) -> None:
+    def __init__(self, model: str, base_url: str | None = None, client: Any = None) -> None:
         if client is None:
             api_key = os.environ.get("ANTHROPIC_API_KEY")
             if not api_key:
                 raise RuntimeError("ANTHROPIC_API_KEY not set")
-            self._client: Any = anthropic.AsyncAnthropic(api_key=api_key)
+            if base_url:
+                self._client: Any = anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url)
+            else:
+                self._client = anthropic.AsyncAnthropic(api_key=api_key)
         else:
             self._client = client
         self._model = model

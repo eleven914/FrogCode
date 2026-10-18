@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
@@ -191,6 +191,22 @@ async def test_missing_api_key_raises_system_exit(monkeypatch: pytest.MonkeyPatc
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY not set"):
         FrogAnthropicProvider(model="any")
+
+
+# 功能：验证自定义 Anthropic 兼容地址被传给 SDK 客户端
+# 设计：DeepSeek 等兼容模型依赖 base_url 路由，遗漏该参数会错误请求 api.anthropic.com 并返回 403
+def test_base_url_forwarded_to_anthropic_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    with patch("frog_code.core.llm.provider.anthropic.AsyncAnthropic") as client_class:
+        FrogAnthropicProvider(
+            model="deepseek-v4-pro",
+            base_url="https://api.deepseek.com/anthropic",
+        )
+
+    client_class.assert_called_once_with(
+        api_key="test-key",
+        base_url="https://api.deepseek.com/anthropic",
+    )
 
 
 # 功能：验证空流式响应不发布任何 llm.token 事件且 result.text 为空字符串

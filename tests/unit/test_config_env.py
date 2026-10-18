@@ -85,3 +85,16 @@ def test_priority_chain_full(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     cfg = frog_get_config()
 
     assert cfg.port == 8000
+
+
+# 功能：验证 FrogCode 能从 .env 读取 Anthropic 兼容网关地址并去掉末尾斜杠
+# 设计：DeepSeek 等兼容服务必须将 SDK 请求改发到网关，避免模型名与 Anthropic 官方接口不匹配
+def test_llm_base_url_loaded_from_dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_env(tmp_path / ".env", "FROG_LLM_BASE_URL=https://api.deepseek.com/anthropic/\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("FROG_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+
+    cfg = frog_get_config()
+
+    assert cfg.llm.base_url == "https://api.deepseek.com/anthropic"

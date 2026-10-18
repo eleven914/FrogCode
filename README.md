@@ -94,7 +94,17 @@ FROG_PORT=7437
 FROG_LOG_LEVEL=INFO
 FROG_LOG_FILE=~/.frog/logs/core.log
 FROG_LLM_DEFAULT_MODEL=claude-sonnet-4-6
+# 使用兼容 Anthropic Messages API 的第三方模型时设置
+FROG_LLM_BASE_URL=
 FROG_MAX_STEPS=20
+```
+
+使用 DeepSeek 官方 Anthropic 兼容接口时，LLM 配置如下：
+
+```dotenv
+ANTHROPIC_API_KEY=你的 DeepSeek API Key
+FROG_LLM_DEFAULT_MODEL=deepseek-v4-pro
+FROG_LLM_BASE_URL=https://api.deepseek.com/anthropic
 ```
 
 完整配置和运维说明见 [RUNBOOK.md](RUNBOOK.md)，IPC 契约见 [WIRE_PROTOCOL.md](WIRE_PROTOCOL.md)。
