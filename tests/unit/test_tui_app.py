@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import asyncio
+
 from rich.markdown import Markdown
 from textual.widget import Widget
 
 from frog_code.tui.app import (
+    FrogChatTextArea,
     FrogLLMStreamBlock,
     FrogToolCallBlock,
     FrogTuiApp,
@@ -203,3 +206,41 @@ def test_unknown_event_silently_ignored() -> None:
 
     app._frog_handle_event({"type": "some.unknown.type", "run_id": "r", "ts": "t"})
     assert appended == []
+
+
+# 功能：通过 Textual Pilot 验证输入文字后按 Enter 会触发真实的提交消息
+# 设计：不直调 handler，覆盖键盘事件 -> FrogChatTextArea.Submitted -> App handler 的完整路径
+async def test_enter_key_submits_prompt() -> None:
+    class _FakeClient:
+        async def frog_send_command(self, method: str, params: dict) -> dict:
+            return {"run_id": "run-1"}
+
+    class _TestApp(FrogTuiApp):
+        enter_hits = 0
+
+        def action_frog_enter(self) -> None:
+            self.enter_hits += 1
+            super().action_frog_enter()
+
+        async def _frog_socket_loop(self) -> None:
+            self._client = _FakeClient()  # type: ignore[assignment]
+            self._session_id = "sess-1"
+            prompt = self.query_one("#prompt", FrogChatTextArea)
+            prompt.disabled = False
+            self.call_after_refresh(prompt.focus)
+            await asyncio.Event().wait()
+
+    app = _TestApp("127.0.0.1", 9999)
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        await pilot.press("h", "i", "enter")
+        await pilot.pause()
+
+        prompt = app.query_one("#prompt", FrogChatTextArea)
+        assert app._busy, (
+            f"prompt={prompt.text!r} focused={app.focused!r} "
+            f"disabled={prompt.disabled} can_focus={prompt.can_focus} focusable={prompt.focusable} "
+            f"enter_hits={app.enter_hits}"
+        )
+        assert prompt.text == ""
+        assert prompt.disabled

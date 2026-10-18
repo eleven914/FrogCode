@@ -33,7 +33,11 @@ def frog_function_name_is_valid(name: str, *, is_method: bool) -> bool:
         return True
     if name.startswith("frog_") or name.startswith("_frog_"):
         return True
-    if is_method and (name.startswith("on_") or name in FROG_METHOD_EXCEPTIONS):
+    if is_method and (
+        name.startswith("on_")
+        or name.startswith("action_frog_")
+        or name in FROG_METHOD_EXCEPTIONS
+    ):
         return True
     return False
 

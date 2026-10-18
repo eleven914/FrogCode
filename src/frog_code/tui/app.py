@@ -412,6 +412,28 @@ class FrogChatTextArea(TextArea):
         else:
             self.post_message(FrogChatTextArea.SlashChanged(query=None))
 
+    # 使用公开 Binding/Action API 拦截 Enter，避免 TextArea 私有 _on_key 在新版本 Textual 中先行吞键
+    def action_frog_submit(self) -> None:
+        if self.read_only or self.disabled:
+            return
+        try:
+            popup = self.app.query_one(FrogSlashCompleteWidget)
+        except NoMatches:
+            popup = None
+        if popup is not None and popup.frog_has_selection():
+            popup.frog_select_current()
+        elif self.text.strip():
+            app = self.app
+            if isinstance(app, FrogTuiApp):
+                app._frog_submit_prompt(self, self.text)
+            else:
+                self.post_message(self.Submitted(self))
+
+    # 组合键显式插入换行，保留聊天输入框的多行编辑能力
+    def action_frog_newline(self) -> None:
+        if not self.read_only and not self.disabled:
+            self.insert("\n")
+
     # Enter 提交；↑↓/Tab/Esc 路由到自动补全弹窗；Cmd/Shift/Alt+Enter 插入换行；其余键交回 TextArea
     async def _on_key(self, event: events.Key) -> None:
         key = event.key
@@ -422,21 +444,6 @@ class FrogChatTextArea(TextArea):
         except NoMatches:
             popup = None
 
-        if key == "enter":
-            event.stop()
-            event.prevent_default()
-            if popup is not None and popup.frog_has_selection():
-                popup.frog_select_current()
-                return
-            if self.text.strip():
-                self.post_message(self.Submitted(self))
-            return
-        if key in ("alt+enter", "shift+enter", "ctrl+j", "super+enter"):
-            event.stop()
-            event.prevent_default()
-            if not self.read_only:
-                self.insert("\n")
-            return
         if popup is not None:
             if key == "up":
                 event.stop()
@@ -467,6 +474,13 @@ class FrogTuiApp(App[None]):
     TITLE = "FrogCode"
     BINDINGS = [
         Binding("ctrl+q", "quit", "quit"),
+        Binding("enter", "frog_enter", show=False, priority=True),
+        Binding(
+            "alt+enter,shift+enter,ctrl+j,super+enter",
+            "frog_newline",
+            show=False,
+            priority=True,
+        ),
     ]
     CSS = """
     Screen { background: $background; }
@@ -530,6 +544,19 @@ class FrogTuiApp(App[None]):
         prompt = self.query_one("#prompt", FrogChatTextArea)
         prompt.disabled = True
         prompt.border_title = "connecting..."
+
+    # App 级 priority binding 会在 TextArea 私有处理器前收到 Enter
+    def action_frog_enter(self) -> None:
+        focused = self.focused
+        if isinstance(focused, FrogChatTextArea):
+            focused.action_frog_submit()
+        elif isinstance(focused, FrogPermissionSelect):
+            focused._frog_pick(FrogPermissionSelect._CHOICES[focused._cursor][0])
+
+    # 将组合键换行转发给当前聊天输入框
+    def action_frog_newline(self) -> None:
+        if isinstance(self.focused, FrogChatTextArea):
+            self.focused.action_frog_newline()
 
     # 构建斜杠命令候选列表：内建命令 + 所有已注册 skill
     def _frog_build_slash_items(self) -> list[tuple[str, str]]:
@@ -612,12 +639,16 @@ class FrogTuiApp(App[None]):
 
     # 将输入框提交内容发送给当前 frog_chat session；用 worker 发送，避免 await 阻塞 App 消息泵
     async def on_chat_text_area_submitted(self, event: FrogChatTextArea.Submitted) -> None:
-        content = event.value.strip()
+        self._frog_submit_prompt(event.text_area, event.value)
+
+    # 同步处理输入提交，供 Textual 消息和 App 级 Enter action 共用
+    def _frog_submit_prompt(self, prompt: FrogChatTextArea, value: str) -> None:
+        content = value.strip()
         if not content:
             return
         # 检测 /frog-compact 指令
         if content == "/frog-compact":
-            event.text_area.text = ""
+            prompt.text = ""
             if self._client is not None and self._session_id is not None and not self._busy:
                 self.run_worker(self._frog_do_compact(), name="frog_compact", exclusive=False)
             return
@@ -625,7 +656,6 @@ class FrogTuiApp(App[None]):
             self._frog_append(Static("[yellow]agent busy or disconnected[/yellow]", classes="log-line"))
             return
         self._busy = True
-        prompt = event.text_area
         prompt.text = ""
         prompt.disabled = True
         prompt.read_only = False
