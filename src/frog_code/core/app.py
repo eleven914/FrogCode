@@ -5,6 +5,7 @@ import datetime
 import fnmatch
 import json
 import logging
+import os
 import signal
 import time
 from datetime import UTC
@@ -233,7 +234,13 @@ class FrogCoreApp:
         sessions_root = Path("~/.frog/sessions").expanduser()
         store = FrogSessionStore(sessions_root)
         assert self._config is not None
-        compact_provider = FrogAnthropicProvider(self._config.llm.default_model)
+        # Core 的 ping、会话管理等本地能力不依赖模型密钥。仅在配置了密钥时
+        # 初始化手动压缩 provider；真正执行 Agent 时 runner 仍会按需校验密钥。
+        compact_provider = (
+            FrogAnthropicProvider(self._config.llm.default_model)
+            if os.environ.get("ANTHROPIC_API_KEY")
+            else None
+        )
 
         self._mcp_manager = FrogMcpServerManager()
         if self._config.mcp.servers:
