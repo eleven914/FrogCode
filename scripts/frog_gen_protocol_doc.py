@@ -279,13 +279,13 @@ def frog_main() -> None:
         if not output_path.exists():
             print(f"ERROR: {output_path} not found — run: make docs", file=sys.stderr)
             sys.exit(1)
-        if output_path.read_text() != content:
+        if output_path.read_text(encoding="utf-8") != content:
             print(f"ERROR: {output_path} out of sync with code — run: make docs", file=sys.stderr)
             sys.exit(1)
         print(f"OK: {output_path} is up to date.")
     else:
         output_path = Path(args.output)
-        output_path.write_text(content)
+        output_path.write_text(content, encoding="utf-8")
         print(f"Generated {output_path}")
 
 
