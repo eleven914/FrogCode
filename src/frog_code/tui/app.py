@@ -193,8 +193,10 @@ class FrogPermissionSelect(Static):
         )
         self.app.call_after_refresh(self._frog_log_deferred_focus)
 
-    # 在下一帧记录焦点是否真正转移到本控件
+    # 下一帧再次请求焦点；挂载期间 VerticalScroll 可能在首次 focus() 后抢回焦点
     def _frog_log_deferred_focus(self) -> None:
+        if not self.has_focus:
+            self.focus()
         log.debug(
             "FrogPermissionSelect.deferred_focus  app.focused=%r  has_focus=%s  focusable=%s",
             self.app.focused,
@@ -547,11 +549,18 @@ class FrogTuiApp(App[None]):
 
     # App 级 priority binding 会在 TextArea 私有处理器前收到 Enter
     def action_frog_enter(self) -> None:
+        # 权限请求优先于普通输入。挂载控件时 VerticalScroll 可能暂时持有焦点，
+        # 因此不能只依赖 isinstance(self.focused, FrogPermissionSelect)。
+        if self._pending_permission_blocks:
+            try:
+                select = self.query_one(FrogPermissionSelect)
+            except NoMatches:
+                return
+            select._frog_pick(FrogPermissionSelect._CHOICES[select._cursor][0])
+            return
         focused = self.focused
         if isinstance(focused, FrogChatTextArea):
             focused.action_frog_submit()
-        elif isinstance(focused, FrogPermissionSelect):
-            focused._frog_pick(FrogPermissionSelect._CHOICES[focused._cursor][0])
 
     # 将组合键换行转发给当前聊天输入框
     def action_frog_newline(self) -> None:
@@ -573,7 +582,7 @@ class FrogTuiApp(App[None]):
         return items
 
     # 根据 / 前缀查询字符串挂载、更新或移除自动补全弹窗
-    def on_chat_text_area_slash_changed(self, event: FrogChatTextArea.SlashChanged) -> None:
+    def on_frog_chat_text_area_slash_changed(self, event: FrogChatTextArea.SlashChanged) -> None:
         query = event.query
         if query is None:
             try:
@@ -590,7 +599,7 @@ class FrogTuiApp(App[None]):
             popup.frog_set_query(query)
 
     # 用户选中自动补全项后将 /{name} 填入输入框并移除弹窗
-    def on_slash_complete_widget_selected(self, event: FrogSlashCompleteWidget.Selected) -> None:
+    def on_frog_slash_complete_widget_selected(self, event: FrogSlashCompleteWidget.Selected) -> None:
         prompt = self._frog_prompt()
         if prompt is not None:
             prompt.text = f"/{event.skill_name} "
@@ -638,7 +647,7 @@ class FrogTuiApp(App[None]):
         self.exit()
 
     # 将输入框提交内容发送给当前 frog_chat session；用 worker 发送，避免 await 阻塞 App 消息泵
-    async def on_chat_text_area_submitted(self, event: FrogChatTextArea.Submitted) -> None:
+    async def on_frog_chat_text_area_submitted(self, event: FrogChatTextArea.Submitted) -> None:
         self._frog_submit_prompt(event.text_area, event.value)
 
     # 同步处理输入提交，供 Textual 消息和 App 级 Enter action 共用
@@ -705,7 +714,7 @@ class FrogTuiApp(App[None]):
             self._frog_append(Static(f"[red]send error: {e}[/red]", classes="log-line"))
 
     # 处理内联审批控件的用户决策：发送 IPC 响应并恢复输入框
-    async def on_permission_select_decided(self, msg: FrogPermissionSelect.Decided) -> None:
+    async def on_frog_permission_select_decided(self, msg: FrogPermissionSelect.Decided) -> None:
         tool_use_id = msg.tool_use_id
         decision = msg.decision
         log.info("permission decided tool_use_id=%s decision=%s", tool_use_id, decision)

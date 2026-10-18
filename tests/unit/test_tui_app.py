@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 
 from rich.markdown import Markdown
+from textual.containers import VerticalScroll
 from textual.widget import Widget
 
 from frog_code.tui.app import (
     FrogChatTextArea,
     FrogLLMStreamBlock,
+    FrogPermissionSelect,
     FrogToolCallBlock,
     FrogTuiApp,
     _frog_param_summary,
@@ -188,7 +190,7 @@ async def test_input_submit_appends_user_turn_and_disables_prompt() -> None:
 
     area = _FakeArea()
     event = _FakeEvent(area)
-    await app.on_chat_text_area_submitted(event)  # type: ignore[arg-type]
+    await app.on_frog_chat_text_area_submitted(event)  # type: ignore[arg-type]
 
     assert app._busy  # type: ignore[attr-defined]
     assert area.disabled
@@ -244,3 +246,108 @@ async def test_enter_key_submits_prompt() -> None:
         )
         assert prompt.text == ""
         assert prompt.disabled
+
+
+# 功能：验证权限选择控件未获得焦点时，Enter 仍确认当前选项并发送 IPC 响应
+# 设计：复现真实日志中的 VerticalScroll 持有焦点场景，覆盖全局 priority binding 的权限兜底路径
+async def test_enter_confirms_permission_when_log_view_has_focus() -> None:
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict]] = []
+
+        async def frog_send_command(self, method: str, params: dict) -> dict:
+            self.calls.append((method, params))
+            return {}
+
+    class _TestApp(FrogTuiApp):
+        enter_hits = 0
+
+        def action_frog_enter(self) -> None:
+            self.enter_hits += 1
+            super().action_frog_enter()
+
+        async def _frog_socket_loop(self) -> None:
+            await asyncio.Event().wait()
+
+    client = _FakeClient()
+    app = _TestApp("127.0.0.1", 9999)
+    async with app.run_test() as pilot:
+        app._client = client  # type: ignore[assignment]
+        app._session_id = "sess-1"
+        app._frog_handle_event({
+            "type": "frog.permission.requested",
+            "tool_use_id": "tool-1",
+            "tool_name": "frog_write_file",
+            "frog_param_preview": "path='workspace/sort.py'",
+            "run_id": "run-1",
+            "ts": "t",
+        })
+        await pilot.pause()
+
+        # 模拟实际故障：滚动日志区在权限控件挂载后重新取得焦点。
+        app.query_one("#log-view", VerticalScroll).focus()
+        await pilot.pause()
+        assert not app.query_one(FrogPermissionSelect).has_focus
+
+        await pilot.press("enter")
+        await pilot.pause()
+
+        assert app.enter_hits == 1
+        assert client.calls == [(
+            "frog.permission.respond",
+            {"tool_use_id": "tool-1", "decision": "allow_once"},
+        )]
+        assert "tool-1" not in app._pending_permission_blocks
+        assert not list(app.query(FrogPermissionSelect))
+
+
+# 功能：验证权限弹窗的字母和数字快捷键均发送正确决策
+# 设计：逐项走键盘事件、Decided 消息和 IPC 响应完整链路，防止控件只更新界面却未通知 Core
+async def test_permission_shortcuts_send_expected_decisions() -> None:
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict]] = []
+
+        async def frog_send_command(self, method: str, params: dict) -> dict:
+            self.calls.append((method, params))
+            return {}
+
+    class _TestApp(FrogTuiApp):
+        async def _frog_socket_loop(self) -> None:
+            await asyncio.Event().wait()
+
+    shortcuts = (
+        ("y", "allow_once"),
+        ("1", "allow_once"),
+        ("a", "always_allow"),
+        ("2", "always_allow"),
+        ("n", "deny_once"),
+        ("3", "deny_once"),
+        ("d", "always_deny"),
+        ("4", "always_deny"),
+    )
+    client = _FakeClient()
+    app = _TestApp("127.0.0.1", 9999)
+    async with app.run_test() as pilot:
+        app._client = client  # type: ignore[assignment]
+        app._session_id = "sess-1"
+
+        for index, (key, decision) in enumerate(shortcuts):
+            tool_use_id = f"tool-{index}"
+            app._frog_handle_event({
+                "type": "frog.permission.requested",
+                "tool_use_id": tool_use_id,
+                "tool_name": "frog_write_file",
+                "frog_param_preview": "path='workspace/sort.py'",
+                "run_id": "run-1",
+                "ts": "t",
+            })
+            await pilot.pause()
+            await pilot.press(key)
+            await pilot.pause()
+
+            assert client.calls[-1] == (
+                "frog.permission.respond",
+                {"tool_use_id": tool_use_id, "decision": decision},
+            )
+            assert tool_use_id not in app._pending_permission_blocks
