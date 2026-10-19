@@ -10,7 +10,7 @@ from rich.markdown import Markdown
 from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.message import Message
 from textual.widget import Widget
@@ -150,8 +150,10 @@ class FrogPermissionSelect(Static):
     DEFAULT_CSS = """
     FrogPermissionSelect {
         height: auto;
-        padding: 0 2;
-        margin-bottom: 1;
+        padding: 1 2;
+        margin: 0 1 1 1;
+        border: round #ffd166;
+        background: #171208;
     }
     """
 
@@ -305,9 +307,9 @@ class FrogSlashCompleteWidget(Static):
     FrogSlashCompleteWidget {
         height: auto;
         padding: 0 1;
-        margin: 0 2;
-        background: $surface;
-        border: round $surface-lighten-2;
+        margin: 0 1;
+        background: #07150f;
+        border: round #2dd879;
     }
     """
 
@@ -471,7 +473,7 @@ class FrogChatTextArea(TextArea):
 
 
 class FrogTuiApp(App[None]):
-    """FrogCode TUI：终端滚屏风格，实时展示 agent 执行过程。"""
+    """FrogCode TUI：青蛙主题仪表盘，实时展示 agent 执行过程。"""
 
     TITLE = "FrogCode"
     BINDINGS = [
@@ -485,44 +487,151 @@ class FrogTuiApp(App[None]):
         ),
     ]
     CSS = """
-    Screen { background: $background; }
+    Screen {
+        background: #030806;
+        color: #d7f5e3;
+    }
     #header {
-        height: 1;
-        background: $surface;
-        color: $text;
-        padding: 0 1;
+        width: 100%;
+        height: 3;
+        background: #07150f;
+        color: #d7f5e3;
+        border-bottom: solid #2dd879;
+        padding: 0 2;
+        content-align: left middle;
+    }
+    #dashboard {
+        width: 100%;
+        height: 1fr;
+        padding: 1;
+    }
+    #left-rail {
+        width: 28;
+        padding-right: 1;
+    }
+    #right-rail {
+        width: 34;
+        padding-left: 1;
+    }
+    #center-pane {
+        width: 1fr;
+        height: 1fr;
+        border: round #35d6c1;
+        background: #020705;
     }
     #log-view {
         height: 1fr;
         scrollbar-size-vertical: 1;
         scrollbar-size-horizontal: 1;
+        scrollbar-color: #2dd879;
+        scrollbar-background: #07150f;
     }
-    #banner { padding: 1 2 0 2; }
-    Static.user-turn { color: $text; padding: 1 2 0 2; }
-    Static.run-header { color: $text-muted; padding: 1 2 0 2; }
-    Static.step-divider { color: $text-muted; padding: 0 2; }
-    Static.run-ok { color: green; padding: 0 2 1 2; }
-    Static.run-err { color: red; padding: 0 2 1 2; }
+    .frog-panel {
+        height: auto;
+        min-height: 6;
+        border: round #25885a;
+        background: #07110d;
+        color: #bcebd0;
+        padding: 1 1;
+        margin-bottom: 1;
+    }
+    #frog-panel {
+        height: 12;
+        color: #7cf3a8;
+        content-align: center middle;
+    }
+    #session-panel {
+        height: 1fr;
+        min-height: 9;
+    }
+    #run-panel {
+        height: 11;
+        border: round #35d6c1;
+    }
+    #activity-panel {
+        height: 1fr;
+        min-height: 10;
+        border: round #c77dff;
+    }
+    #changes-panel {
+        height: 8;
+        border: round #ff8fcb;
+    }
+    #skills-panel {
+        height: 9;
+        border: round #8db7ff;
+        margin-bottom: 0;
+    }
+    #banner {
+        padding: 2 2 1 2;
+        color: #bcebd0;
+        content-align: center top;
+    }
+    Static.user-turn {
+        color: #e7fff0;
+        background: #0a1a12;
+        border-left: thick #2dd879;
+        padding: 1 2;
+        margin: 1 1 0 1;
+    }
+    Static.run-header { color: #7dc9b0; padding: 1 2 0 2; }
+    Static.step-divider { color: #69a88f; padding: 0 2; }
+    Static.run-ok { color: #54e88d; padding: 0 2 1 2; }
+    Static.run-err { color: #ff6b7a; padding: 0 2 1 2; }
     Static.usage { padding: 0 2; }
     Static.log-line { padding: 0 2; }
+    #prompt {
+        margin: 0 1 1 1;
+        border: round #25885a;
+        background: #06100b;
+    }
+    #prompt:focus {
+        border: round #7cf3a8;
+        background: #08170f;
+    }
+    #footer {
+        width: 100%;
+        height: 1;
+        background: #07150f;
+        color: #73b99a;
+        padding: 0 2;
+    }
+    Screen.frog-compact #right-rail { display: none; }
+    Screen.frog-narrow #left-rail { display: none; }
+    Screen.frog-narrow #dashboard { padding: 0; }
     """
 
     _BANNER = (
-        "[bold green]  ______                ______          __[/bold green]\n"
-        "[bold green] / ____/________  ____ _/ ____/___  ____/ /__[/bold green]\n"
-        "[bold green]/ /_  / ___/ __ \\/ __ `/ /   / __ \\/ __  / _ \\[/bold green]\n"
-        "[bold green]/ __/ / /  / /_/ / /_/ / /___/ /_/ / /_/ /  __/[/bold green]\n"
-        "[bold green]/_/   /_/   \\____/\\__, /\\____/\\____/\\__,_/\\___/[/bold green]\n"
-        "[bold green]                 /____/[/bold green]\n"
-        "[dim]  输入消息开始对话  ·  键入 / 触发 skill  ·  Ctrl+C 退出[/dim]"
+        "[bold #7cf3a8]F  R  O  G  C  O  D  E[/bold #7cf3a8]\n"
+        "[#35d6c1]Local Agent Pond[/#35d6c1]\n\n"
+        "[bold #7cf3a8]      @..@[/bold #7cf3a8]\n"
+        "[bold #7cf3a8]     (----)[/bold #7cf3a8]\n"
+        "[bold #7cf3a8]    ( >__< )[/bold #7cf3a8]\n"
+        "[bold #7cf3a8]    ^^ ~~ ^^[/bold #7cf3a8]\n\n"
+        "[dim]在下方输入目标并按 Enter · 输入 / 查看 Frog Skills[/dim]"
+    )
+
+    _FROG_MASCOT = (
+        "[bold #7cf3a8]   @..@[/bold #7cf3a8]\n"
+        "[bold #7cf3a8]  (----)[/bold #7cf3a8]\n"
+        "[bold #7cf3a8] ( >__< )[/bold #7cf3a8]\n"
+        "[bold #7cf3a8] ^^ ~~ ^^[/bold #7cf3a8]\n"
+        "[dim]FROG IS READY[/dim]"
     )
 
     # 初始化连接参数和 TUI 内部状态
-    def __init__(self, host: str, port: int, replay_run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        replay_run_id: str | None = None,
+        model: str = "auto",
+    ) -> None:
         super().__init__()
         self._host = host
         self._port = port
         self._replay_run_id = replay_run_id
+        self._model = model
         self._client: FrogSocketClient | None = None
         self._current_llm: FrogLLMStreamBlock | None = None
         self._pending_tool_blocks: dict[str, FrogToolCallBlock] = {}
@@ -533,19 +642,52 @@ class FrogTuiApp(App[None]):
         self._slash_items: list[tuple[str, str]] = []
         self._subagent_run_ids: dict[str, str] = {}  # child run_id -> description
         self._subagent_start_times: dict[str, float] = {}  # child run_id -> start time
+        self._connection_state = "connecting"
+        self._current_run_id = ""
+        self._current_goal = ""
+        self._current_step = 0
+        self._input_tokens = 0
+        self._output_tokens = 0
+        self._cache_tokens = 0
+        self._tool_count = 0
+        self._message_count = 0
+        self._recent_activity: list[str] = []
+        self._changed_paths: list[str] = []
 
     def compose(self) -> ComposeResult:
-        yield Label("[bold]FrogCode[/bold]  [dim]connecting...[/dim]", id="header")
-        yield VerticalScroll(id="log-view")
-        yield FrogChatTextArea(id="prompt", show_line_numbers=False)
+        yield Label("[bold #7cf3a8]🐸 FROGCODE[/bold #7cf3a8]  [dim]awakening the pond...[/dim]", id="header")
+        with Horizontal(id="dashboard"):
+            with Vertical(id="left-rail"):
+                yield Static("", id="status-panel", classes="frog-panel")
+                yield Static(self._FROG_MASCOT, id="frog-panel", classes="frog-panel")
+                yield Static("", id="session-panel", classes="frog-panel")
+            with Vertical(id="center-pane"):
+                yield VerticalScroll(id="log-view")
+                yield FrogChatTextArea(id="prompt", show_line_numbers=False)
+            with Vertical(id="right-rail"):
+                yield Static("", id="run-panel", classes="frog-panel")
+                yield Static("", id="activity-panel", classes="frog-panel")
+                yield Static("", id="changes-panel", classes="frog-panel")
+                yield Static("", id="skills-panel", classes="frog-panel")
+        yield Label(
+            "[bold #7cf3a8]Enter[/bold #7cf3a8] send  "
+            "[bold]Shift+Enter[/bold] newline  [bold]/[/bold] skills  [bold]Ctrl+Q[/bold] quit",
+            id="footer",
+        )
 
     def on_mount(self) -> None:
         self._slash_items = self._frog_build_slash_items()
         self._frog_append(Static(self._BANNER, id="banner"))
+        self._frog_refresh_sidebars()
         self.run_worker(self._frog_socket_loop(), exclusive=True, name="socket")
         prompt = self.query_one("#prompt", FrogChatTextArea)
         prompt.disabled = True
         prompt.border_title = "connecting..."
+
+    # 根据终端宽度隐藏辅助栏，保证聊天和输入在窄窗口中仍然可用
+    def on_resize(self, event: events.Resize) -> None:
+        self.screen.set_class(event.size.width < 118, "frog-compact")
+        self.screen.set_class(event.size.width < 82, "frog-narrow")
 
     # App 级 priority binding 会在 TextArea 私有处理器前收到 Enter
     def action_frog_enter(self) -> None:
@@ -595,7 +737,7 @@ class FrogTuiApp(App[None]):
             popup.frog_set_query(query)
         except NoMatches:
             popup = FrogSlashCompleteWidget(self._slash_items)
-            self.mount(popup, before="#prompt")
+            self.query_one("#center-pane", Vertical).mount(popup, before="#prompt")
             popup.frog_set_query(query)
 
     # 用户选中自动补全项后将 /{name} 填入输入框并移除弹窗
@@ -665,11 +807,13 @@ class FrogTuiApp(App[None]):
             self._frog_append(Static("[yellow]agent busy or disconnected[/yellow]", classes="log-line"))
             return
         self._busy = True
+        self._message_count += 1
         prompt.text = ""
         prompt.disabled = True
         prompt.read_only = False
         prompt.border_title = "agent is working..."
         self._frog_append(Static(f"[bold]>[/bold] {content}", classes="user-turn"))
+        self._frog_refresh_sidebars()
         self._frog_update_header("running")
         self.run_worker(self._frog_do_send_message(content), name="frog_send_message", exclusive=False)
 
@@ -753,9 +897,9 @@ class FrogTuiApp(App[None]):
             self._current_llm.frog_finalize_markdown()
         self._current_llm = None
 
-    # 将选择控件挂载到 Screen 顶层（#prompt 之前），避免 VerticalScroll 争抢焦点
+    # 将选择控件挂载到聊天主栏（#prompt 之前），保持仪表盘布局并避免日志区争抢焦点
     def _frog_mount_permission_select(self, select: FrogPermissionSelect) -> None:
-        self.mount(select, before="#prompt")
+        self.query_one("#center-pane", Vertical).mount(select, before="#prompt")
 
     # 安全获取输入框，便于组件测试中未挂载时跳过 UI 操作
     def _frog_prompt(self) -> FrogChatTextArea | None:
@@ -777,22 +921,145 @@ class FrogTuiApp(App[None]):
             color = "dim"
         return f"[{color}]{label} {bar}[/{color}]"
 
+    # 向右侧活动面板追加一条记录，并限制面板只保留最近事件
+    def _frog_add_activity(self, text: str) -> None:
+        self._recent_activity.append(_frog_preview(text, 42))
+        del self._recent_activity[:-8]
+
+    # 更新左右辅助栏；未挂载的组件测试中静默跳过
+    def _frog_refresh_sidebars(self) -> None:
+        state_color = {
+            "ready": "#54e88d",
+            "running": "#ffd166",
+            "success": "#54e88d",
+            "failed": "#ff6b7a",
+            "disconnected": "#ff6b7a",
+            "connecting": "#7dc9b0",
+        }.get(self._connection_state, "#7dc9b0")
+        status_text = (
+            "[bold #7cf3a8]POND STATUS[/bold #7cf3a8]\n"
+            f"[{state_color}]● {self._connection_state.upper()}[/{state_color}]\n"
+            f"[dim]endpoint[/dim]  {self._host}:{self._port}\n"
+            f"[dim]model[/dim]     {_frog_preview(self._model, 20)}"
+        )
+        session_text = (
+            "[bold #7cf3a8]SESSION[/bold #7cf3a8]\n"
+            f"[cyan]{_frog_preview(self._session_id or 'not connected', 23)}[/cyan]\n\n"
+            f"[dim]messages[/dim]  {self._message_count}\n"
+            f"[dim]context[/dim]   {self._last_context_pct * 100:.1f}%"
+        )
+        run_state = self._connection_state if self._current_run_id else "idle"
+        run_text = (
+            "[bold #35d6c1]CURRENT RUN[/bold #35d6c1]\n"
+            f"[dim]state[/dim]  {run_state}\n"
+            f"[dim]id[/dim]     {_frog_preview(self._current_run_id or '—', 20)}\n"
+            f"[dim]step[/dim]   {self._current_step}    [dim]tools[/dim] {self._tool_count}\n"
+            f"[dim]tokens[/dim] ↑{self._input_tokens} ↓{self._output_tokens}\n"
+            f"[dim]goal[/dim]   {_frog_preview(self._current_goal or 'waiting for a goal', 25)}"
+        )
+        activity_lines = "\n".join(f"[dim]•[/dim] {item}" for item in self._recent_activity)
+        activity_text = (
+            "[bold #c77dff]ACTIVITY[/bold #c77dff]\n"
+            + (activity_lines or "[dim]No activity yet[/dim]")
+        )
+        change_lines = "\n".join(f"[#ff8fcb]∆[/#ff8fcb] {_frog_preview(path, 26)}" for path in self._changed_paths[-4:])
+        changes_text = (
+            "[bold #ff8fcb]CHANGES[/bold #ff8fcb]\n"
+            + (change_lines or "[dim]No files changed[/dim]")
+        )
+        skill_names = [name for name, _ in self._slash_items[:5]]
+        skills_text = (
+            "[bold #8db7ff]FROG SKILLS[/bold #8db7ff]\n"
+            + ("\n".join(f"[#8db7ff]/{name}[/#8db7ff]" for name in skill_names) or "[dim]No skills loaded[/dim]")
+        )
+
+        for widget_id, content in (
+            ("#status-panel", status_text),
+            ("#session-panel", session_text),
+            ("#run-panel", run_text),
+            ("#activity-panel", activity_text),
+            ("#changes-panel", changes_text),
+            ("#skills-panel", skills_text),
+        ):
+            try:
+                self.query_one(widget_id, Static).update(content)
+            except Exception:
+                # 纯事件单元测试会在 App 尚未挂载 Screen 时调用此方法。
+                pass
+
+    # 从现有事件流提取仪表盘摘要，不改变聊天区原有事件处理
+    def _frog_track_dashboard_event(self, event: dict[str, Any]) -> None:
+        event_type = str(event.get("type", ""))
+        changed = True
+        if event_type == "frog.run.started":
+            self._current_run_id = str(event.get("run_id", ""))
+            self._current_goal = str(event.get("goal", ""))
+            self._current_step = 0
+            self._tool_count = 0
+            self._connection_state = "running"
+            self._frog_add_activity(f"run started · {_frog_preview(self._current_goal, 24)}")
+        elif event_type == "frog.run.finished":
+            self._connection_state = str(event.get("status", "finished"))
+            self._frog_add_activity(f"run {self._connection_state} · {event.get('steps', 0)} steps")
+        elif event_type == "frog.step.started":
+            run_id = str(event.get("run_id", ""))
+            if run_id not in self._subagent_run_ids:
+                self._current_step = int(event.get("step") or 0)
+                self._frog_add_activity(f"step {self._current_step} planning")
+        elif event_type == "frog.llm.model_selected":
+            self._model = str(event.get("model", self._model))
+        elif event_type == "frog.llm.usage":
+            run_id = str(event.get("run_id", ""))
+            if run_id not in self._subagent_run_ids:
+                self._input_tokens = int(event.get("input_tokens") or 0)
+                self._output_tokens = int(event.get("output_tokens") or 0)
+                self._cache_tokens = int(event.get("cache_read_input_tokens") or 0)
+                self._last_context_pct = float(event.get("context_pct") or 0.0)
+        elif event_type == "frog.tool.call_started":
+            tool_name = str(event.get("tool_name", "tool"))
+            params = event.get("params") or {}
+            self._tool_count += 1
+            self._frog_add_activity(f"{tool_name} · {_frog_param_summary(tool_name, params, 24)}")
+            if tool_name == "frog_write_file":
+                path = str(params.get("path", ""))
+                if path and path not in self._changed_paths:
+                    self._changed_paths.append(path)
+        elif event_type == "frog.skill.invoked":
+            self._frog_add_activity(f"skill /{event.get('skill_name', '')}")
+        elif event_type == "frog.permission.requested":
+            self._frog_add_activity(f"permission · {event.get('tool_name', '')}")
+        elif event_type == "frog.subagent.started":
+            self._frog_add_activity(f"subagent · {event.get('description', '')}")
+        elif event_type in ("frog.session.waiting_for_input", "frog.session.created"):
+            self._connection_state = "ready"
+        elif event_type == "frog.session.closed":
+            self._connection_state = "disconnected"
+        else:
+            changed = False
+
+        if changed:
+            self._frog_refresh_sidebars()
+
     # 根据连接和运行状态刷新顶部标题
     def _frog_update_header(self, state: str) -> None:
         try:
             header = self.query_one("#header", Label)
         except NoMatches:
             return
+        self._connection_state = state
+        self._frog_refresh_sidebars()
         session = f"  [dim]{self._session_id}[/dim]" if self._session_id else ""
         color = {
-            "ready": "green",
-            "running": "yellow",
-            "disconnected": "red",
-            "connecting": "dim",
-        }.get(state, "dim")
+            "ready": "#54e88d",
+            "running": "#ffd166",
+            "success": "#54e88d",
+            "failed": "#ff6b7a",
+            "disconnected": "#ff6b7a",
+            "connecting": "#7dc9b0",
+        }.get(state, "#7dc9b0")
         header.update(
-            f"[bold]FrogCode[/bold]  [dim]{self._host}:{self._port}[/dim]"
-            f"{session}  [{color}]{state}[/{color}]"
+            f"[bold #7cf3a8]🐸 FROGCODE[/bold #7cf3a8]  [dim]LOCAL AGENT POND[/dim]"
+            f"  [{color}]● {state.upper()}[/{color}]  [dim]{self._host}:{self._port}[/dim]{session}"
         )
 
     # 管理 FrogSocketClient 生命周期：连接、订阅事件、断线重连
@@ -834,6 +1101,7 @@ class FrogTuiApp(App[None]):
                         "frog.tool.*",
                         "frog.llm.token",
                         "frog.llm.usage",
+                        "frog.llm.model_selected",
                         "frog.log.*",
                         "frog.permission.*",
                         "frog.context.*",
@@ -884,6 +1152,7 @@ class FrogTuiApp(App[None]):
     # 实际的事件路由逻辑
     def _frog_handle_event_inner(self, event: dict[str, Any]) -> None:
         t = event.get("type", "")
+        self._frog_track_dashboard_event(event)
 
         if t == "frog.llm.token":
             token = event.get("token", "")
@@ -1096,5 +1365,10 @@ class FrogTuiApp(App[None]):
 
 # TUI 入口：读取配置并启动 FrogTuiApp
 def frog_run(config: FrogConfig, replay_run_id: str | None = None) -> None:
-    app = FrogTuiApp(config.host, config.port, replay_run_id=replay_run_id)
+    app = FrogTuiApp(
+        config.host,
+        config.port,
+        replay_run_id=replay_run_id,
+        model=config.llm.default_model,
+    )
     app.run()

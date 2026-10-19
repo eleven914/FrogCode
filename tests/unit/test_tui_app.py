@@ -5,11 +5,13 @@ import asyncio
 from rich.markdown import Markdown
 from textual.containers import VerticalScroll
 from textual.widget import Widget
+from textual.widgets import Static
 
 from frog_code.tui.app import (
     FrogChatTextArea,
     FrogLLMStreamBlock,
     FrogPermissionSelect,
+    FrogSlashCompleteWidget,
     FrogToolCallBlock,
     FrogTuiApp,
     _frog_param_summary,
@@ -351,3 +353,70 @@ async def test_permission_shortcuts_send_expected_decisions() -> None:
                 {"tool_use_id": tool_use_id, "decision": decision},
             )
             assert tool_use_id not in app._pending_permission_blocks
+
+
+# 功能：验证三栏仪表盘能从既有事件流更新模型、运行状态、Token、活动和变更文件
+# 设计：在宽终端挂载真实 App 并注入事件，确认侧栏内容更新且聊天区仍保留工具块
+async def test_dashboard_tracks_existing_event_stream() -> None:
+    class _TestApp(FrogTuiApp):
+        async def _frog_socket_loop(self) -> None:
+            await asyncio.Event().wait()
+
+    app = _TestApp("127.0.0.1", 9999, model="initial-model")
+    async with app.run_test(size=(160, 48)) as pilot:
+        app._session_id = "sess-dashboard"
+        events = (
+            {"type": "frog.run.started", "run_id": "run-frog", "goal": "polish the pond", "ts": "t"},
+            {"type": "frog.llm.model_selected", "run_id": "run-frog", "model": "deepseek-v4-pro", "ts": "t"},
+            {"type": "frog.step.started", "run_id": "run-frog", "step": 3, "ts": "t"},
+            {
+                "type": "frog.llm.usage", "run_id": "run-frog", "input_tokens": 120,
+                "output_tokens": 45, "cache_read_input_tokens": 80, "context_pct": 0.25, "ts": "t",
+            },
+            {
+                "type": "frog.tool.call_started", "run_id": "run-frog", "tool_use_id": "write-1",
+                "tool_name": "frog_write_file", "params": {"path": "workspace/sort.py"}, "ts": "t",
+            },
+        )
+        for event in events:
+            app._frog_handle_event(event)
+        await pilot.pause()
+
+        assert "deepseek-v4-pro" in str(app.query_one("#status-panel", Static).content)
+        run_content = str(app.query_one("#run-panel", Static).content)
+        assert "run-frog" in run_content
+        assert "step" in run_content and "3" in run_content
+        assert "↑120" in run_content and "↓45" in run_content
+        assert "frog_write_file" in str(app.query_one("#activity-panel", Static).content)
+        assert "workspace/sort.py" in str(app.query_one("#changes-panel", Static).content)
+        assert "write-1" in app._pending_tool_blocks
+
+
+# 功能：验证斜杠命令补全在嵌套的中间聊天栏中仍可打开并选择
+# 设计：通过 Pilot 输入 /frog_r 并按 Tab，覆盖 Changed 消息、弹窗挂载、筛选和 Selected 消息完整链路
+async def test_slash_completion_works_in_dashboard_layout() -> None:
+    class _TestApp(FrogTuiApp):
+        async def _frog_socket_loop(self) -> None:
+            self._client = object()  # type: ignore[assignment]
+            self._session_id = "sess-1"
+            prompt = self.query_one("#prompt", FrogChatTextArea)
+            prompt.disabled = False
+            self.call_after_refresh(prompt.focus)
+            await asyncio.Event().wait()
+
+    app = _TestApp("127.0.0.1", 9999)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await pilot.pause()
+        await pilot.press("/", "f", "r", "o", "g", "_", "r")
+        await pilot.pause()
+
+        popup = app.query_one(FrogSlashCompleteWidget)
+        assert popup.parent is app.query_one("#center-pane")
+        assert popup.frog_has_selection()
+
+        await pilot.press("tab")
+        await pilot.pause()
+
+        prompt = app.query_one("#prompt", FrogChatTextArea)
+        assert prompt.text.startswith("/frog_r")
+        assert not list(app.query(FrogSlashCompleteWidget))

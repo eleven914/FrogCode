@@ -43,7 +43,12 @@ def frog_main() -> None:
 
     config = frog_get_config()
     _frog_setup_logging(config.logging.level)
-    app = FrogTuiApp(config.host, config.port, replay_run_id=args.replay)
+    app = FrogTuiApp(
+        config.host,
+        config.port,
+        replay_run_id=args.replay,
+        model=config.llm.default_model,
+    )
     app.run()
 
 
